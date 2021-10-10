@@ -76,6 +76,55 @@ def test_not_found():
     assert response.json() == {"detail": "Not Found"}
 
 
+def test_token_with_proper_credentials(users_db):
+    login_data = {
+        "username": TEST_USER_EMAIL,
+        "password": TEST_USER_PASSWORD
+    }
+
+    response = client.post('/token', data=login_data)
+
+    assert response.status_code == 200
+    assert 'access_token' in response.json()
+
+
+def test_token_with_wrong_credentials(users_db):
+    login_data = {
+        "username": TEST_USER_EMAIL,
+        "password": 'another_password'
+    }
+
+    response = client.post('/token', data=login_data)
+    assert response.status_code == 401
+    assert {'detail': "Could not validate credentials"}
+
+    login_data = {
+        "username": 'Another User',
+        "password": TEST_USER_PASSWORD
+    }
+
+    response = client.post('/token', data=login_data)
+    assert response.status_code == 401
+    assert {'detail': "Could not validate credentials"}
+
+
+def test_authentication_with_bad_token(users_db):
+    headers = {"Authorization": "Bearer complete_n0n_s3ns3"}
+    response = client.get("/users/", headers=headers)
+
+    assert response.status_code == 401
+
+
+def test_authentication_error_with_deleted_user(users_db, auth_headers):
+    response = client.delete('/users/1', headers=auth_headers)
+
+    assert response.status_code == 200
+
+    response = client.get("/users/", headers=auth_headers)
+    assert response.status_code == 401
+    assert {'detail': "Could not validate credentials"}
+
+
 def test_get_all_users(users_db, auth_headers):
     response = client.get("/users/", headers=auth_headers)
     assert response.status_code == 200
@@ -145,7 +194,7 @@ def test_user_update(users_db, auth_headers):
 
     assert response.status_code == 200
     assert response.json() == expected_user
-    
+
     # Up to this point we know that the request was successful
     # but we also have to check that the password update happened
     # by authenticating with the new password
@@ -173,6 +222,36 @@ def test_user_update_unknown_user(users_db, auth_headers):
             password="new_password"
         )
     )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "User doesn't exist"}
+
+
+def test_user_deletion(users_db, auth_headers):
+    response = client.post(
+        "/users/",
+        headers=auth_headers,
+        json=dict(
+            email="test_2@example.com",
+            is_admin=True,
+            password="not a real password"
+        )
+    )
+    assert response.status_code == 200
+
+    response = client.get("/users/", headers=auth_headers)
+    assert len(response.json()) == 2
+
+    response = client.delete("/users/2", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json() == {"id": 2}
+
+    response = client.get("/users/", headers=auth_headers)
+    assert len(response.json()) == 1
+
+
+def test_user_delete_unknown_user(users_db, auth_headers):
+    response = client.delete("/users/11111", headers=auth_headers)
 
     assert response.status_code == 404
     assert response.json() == {"detail": "User doesn't exist"}
