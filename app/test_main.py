@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from . import security
+from . import security, config
 from .main import app, get_db
 from .database import Base
 
@@ -35,6 +35,11 @@ app.dependency_overrides[get_db] = override_get_db
 
 client = TestClient(app)
 
+# TODO: Currently this ignores warnings for sqlite/SQLAlchemy
+# This occurs because sqlite doesn't properly renders Decimal types
+# and should be removed when changing to a proper DBMS
+pytestmark = pytest.mark.filterwarnings("ignore")
+
 
 # ==================================================================
 # Fixtures
@@ -56,6 +61,16 @@ def test_db():
             pwd=hashed_password,
             is_admin=True
         )
+
+        for product in config.INITIAL_PRODUCTS:
+            conn.execute(
+                """
+                    INSERT INTO
+                        products(id, sku, name, brand, price, description)
+                        VALUES(:id, :sku, :name, :brand, :price, :description)
+                """,
+                product
+            )
 
     yield
     Base.metadata.drop_all(bind=engine)
