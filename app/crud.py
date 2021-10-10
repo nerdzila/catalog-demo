@@ -67,6 +67,9 @@ def authenticate_user(db: Session, email: str, password: str):
         return False
     return user
 
+
 # ==================================================================
 # Product CRUD utilities
 # ==================================================================
+def get_all_products(db: Session) -> List[models.Product]:
+    return db.query(models.Product).all()

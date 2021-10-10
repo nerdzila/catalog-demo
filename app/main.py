@@ -151,6 +151,13 @@ def delete_user(
 
     return {"id": user_id}
 
+
 # ==================================================================
 # Product-related endpoints
 # ==================================================================
+@app.get("/products/", response_model=List[schemas.ProductOut])
+def get_product_list(
+    db: Session = Depends(get_db),
+):
+    """Retrieve all products"""
+    return crud.get_all_products(db)

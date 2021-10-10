@@ -287,3 +287,7 @@ def test_user_delete_unknown_user(test_db, auth_headers):
 # ==================================================================
 # Product-related Tests
 # ==================================================================
+def test_get_all_products(test_db, auth_headers):
+    response = client.get("/products/", headers=auth_headers)
+    assert response.status_code == 200
+    assert len(response.json()) == 2
