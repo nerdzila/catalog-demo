@@ -39,3 +39,7 @@ class UserOut(UserBase):
 class UserDeleted(BaseModel):
     """For deleted users we return only the ID"""
     id: int
+
+# ==================================================================
+# Product Schemas
+# ==================================================================

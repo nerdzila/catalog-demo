@@ -15,9 +15,9 @@ app = FastAPI()
 initialize_db()
 
 
-# ==================
+# ==================================================================
 # Dependencies
-# ==================
+# ==================================================================
 def get_db():  # pragma: no cover
     db = SessionLocal()
     try:
@@ -45,9 +45,9 @@ def get_current_user(
     return user
 
 
-# ==================
-# Endpoints
-# ==================
+# ==================================================================
+# General Purpose Endpoints
+# ==================================================================
 @app.get("/")
 def read_root():
     """Root endpoint, for now just says hello to the world"""
@@ -76,6 +76,9 @@ def login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
+# ==================================================================
+# User-related endpoints
+# ==================================================================
 @app.get("/users/", response_model=List[schemas.UserOut])
 def read_users(
     db: Session = Depends(get_db),
@@ -144,3 +147,7 @@ def delete_user(
     crud.delete_user(db, user_db)
 
     return {"id": user_id}
+
+# ==================================================================
+# Product-related endpoints
+# ==================================================================

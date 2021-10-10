@@ -8,6 +8,9 @@ from .main import app, get_db
 from .database import Base
 
 
+# ==================================================================
+# Configuration and initialization
+# ==================================================================
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 TEST_USER_EMAIL = "test@example.com"
 TEST_USER_PASSWORD = "pwd"
@@ -33,6 +36,9 @@ app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
 
+# ==================================================================
+# Fixtures
+# ==================================================================
 @pytest.fixture()
 def users_db():
     Base.metadata.create_all(bind=engine)
@@ -64,6 +70,9 @@ def auth_headers(users_db):
     return headers
 
 
+# ==================================================================
+# General Purpose Tests
+# ==================================================================
 def test_read_home():
     response = client.get("/")
     assert response.status_code == 200
@@ -125,6 +134,9 @@ def test_authentication_error_with_deleted_user(users_db, auth_headers):
     assert {'detail': "Could not validate credentials"}
 
 
+# ==================================================================
+# User-related Tests
+# ==================================================================
 def test_get_all_users(users_db, auth_headers):
     response = client.get("/users/", headers=auth_headers)
     assert response.status_code == 200
@@ -255,3 +267,8 @@ def test_user_delete_unknown_user(users_db, auth_headers):
 
     assert response.status_code == 404
     assert response.json() == {"detail": "User doesn't exist"}
+
+
+# ==================================================================
+# Product-related Tests
+# ==================================================================
