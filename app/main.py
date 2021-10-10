@@ -1,13 +1,14 @@
 from typing import List
+from datetime import timedelta
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from fastapi.security import OAuth2PasswordRequestForm
+from jose import JWTError
 
+from . import models, crud, schemas, security, config
 from .database import SessionLocal, initialize_db
 
-
-# TODO: delegate DB initalization to migrations library
-models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -25,6 +26,25 @@ def get_db():  # pragma: no cover
         db.close()
 
 
+def get_current_user(
+    db: Session = Depends(get_db),
+    token: str = Depends(security.oauth2_scheme)
+):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        email = security.get_email_from_token(token)
+    except JWTError:
+        raise credentials_exception
+    user = crud.get_user_by_email(db, email)
+    if user is None:
+        raise credentials_exception
+    return user
+
+
 # ==================
 # Endpoints
 # ==================
@@ -34,14 +54,43 @@ def read_root():
     return {"Hello": "World"}
 
 
+@app.post("/token", response_model=schemas.Token)
+def login_for_access_token(
+    db: Session = Depends(get_db),
+    form_data: OAuth2PasswordRequestForm = Depends()
+):
+    user = crud.authenticate_user(db, form_data.username,
+                                  form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(
+        minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+    access_token = security.create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
 @app.get("/users/", response_model=List[schemas.UserOut])
-def read_users(db: Session = Depends(get_db)):
+def read_users(
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user)
+):
     """Retrieve all users"""
     return crud.get_all_users(db)
 
 
 @app.get("/users/{user_id}", response_model=schemas.UserOut)
-def read_user(user_id: int, db: Session = Depends(get_db)):
+def read_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user)
+):
     """Retrieve single user by ID"""
     db_user = crud.get_user(db, user_id=user_id)
 
@@ -52,7 +101,11 @@ def read_user(user_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/users/", response_model=schemas.UserOut)
-def create_user(user_in: schemas.UserIn, db: Session = Depends(get_db),):
+def create_user(
+    user_in: schemas.UserIn,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user)
+):
     """Create a new user"""
     existing_user = crud.get_user_by_email(db, user_in.email)
 
@@ -67,7 +120,8 @@ def create_user(user_in: schemas.UserIn, db: Session = Depends(get_db),):
 def update_user(
     user_id: int,
     user_in: schemas.UserIn,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user)
 ):
     user_db = crud.get_user(db, user_id)
     if not user_db:
