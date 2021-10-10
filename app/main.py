@@ -3,14 +3,15 @@ from typing import List
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from . import models, crud, schemas
-from .database import SessionLocal, engine
+from .database import SessionLocal, initialize_db
 
 
 # TODO: delegate DB initalization to migrations library
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+initialize_db()
 
 
 # ==================
