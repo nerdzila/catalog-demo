@@ -17,6 +17,7 @@ Base = declarative_base()
 
 def initialize_db():
     # TODO: delegate DB initalization to migrations library
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 
     with engine.connect() as conn:
@@ -28,9 +29,18 @@ def initialize_db():
                 INSERT INTO
                     users(email, hashed_password, is_admin)
                     VALUES(:email, :pwd, :is_admin)
-                ON CONFLICT DO NOTHING
             """,
             email=config.FIRST_USER_EMAIL,
             pwd=hashed_password,
             is_admin=True
         )
+
+        for product in config.INITIAL_PRODUCTS:
+            conn.execute(
+                """
+                    INSERT INTO
+                        products(id, sku, name, brand, price, description)
+                        VALUES(:id, :sku, :name, :brand, :price, :description)
+                """,
+                product
+            )

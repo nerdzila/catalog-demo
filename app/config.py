@@ -13,3 +13,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 FIRST_USER_EMAIL = "escribele.a.alfonso@gmail.com"
 FIRST_USER_PASSWORD = "not_a_real_password"
+
+INITIAL_PRODUCTS = [
+  dict(id=1, sku="B079XC5PVV", name="SSD Disk 1TB", brand="Kingston",
+       price="2012.50", description="Fast storage solution"),
+  dict(id=2, sku="B00U26V4VQ", name="Catan classic", brand="Catan Studio",
+       price="1140.26", description="Classic board game"),
+]
