@@ -40,7 +40,7 @@ client = TestClient(app)
 # Fixtures
 # ==================================================================
 @pytest.fixture()
-def users_db():
+def test_db():
     Base.metadata.create_all(bind=engine)
     with engine.connect() as conn:
         hashed_password = security.get_password_hash(
@@ -62,7 +62,7 @@ def users_db():
 
 
 @pytest.fixture()
-def auth_headers(users_db):
+def auth_headers(test_db):
     token = security.create_access_token(
         data={"sub": TEST_USER_EMAIL}
     )
@@ -85,7 +85,7 @@ def test_not_found():
     assert response.json() == {"detail": "Not Found"}
 
 
-def test_token_with_proper_credentials(users_db):
+def test_token_with_proper_credentials(test_db):
     login_data = {
         "username": TEST_USER_EMAIL,
         "password": TEST_USER_PASSWORD
@@ -97,7 +97,7 @@ def test_token_with_proper_credentials(users_db):
     assert 'access_token' in response.json()
 
 
-def test_token_with_wrong_credentials(users_db):
+def test_token_with_wrong_credentials(test_db):
     login_data = {
         "username": TEST_USER_EMAIL,
         "password": 'another_password'
@@ -117,14 +117,14 @@ def test_token_with_wrong_credentials(users_db):
     assert {'detail': "Could not validate credentials"}
 
 
-def test_authentication_with_bad_token(users_db):
+def test_authentication_with_bad_token(test_db):
     headers = {"Authorization": "Bearer complete_n0n_s3ns3"}
     response = client.get("/users/", headers=headers)
 
     assert response.status_code == 401
 
 
-def test_authentication_error_with_deleted_user(users_db, auth_headers):
+def test_authentication_error_with_deleted_user(test_db, auth_headers):
     response = client.delete('/users/1', headers=auth_headers)
 
     assert response.status_code == 200
@@ -137,27 +137,27 @@ def test_authentication_error_with_deleted_user(users_db, auth_headers):
 # ==================================================================
 # User-related Tests
 # ==================================================================
-def test_get_all_users(users_db, auth_headers):
+def test_get_all_users(test_db, auth_headers):
     response = client.get("/users/", headers=auth_headers)
     assert response.status_code == 200
     assert response.json() == [{"id": 1, "email": "test@example.com",
                                "is_admin": True}]
 
 
-def test_user_get_by_id(users_db, auth_headers):
+def test_user_get_by_id(test_db, auth_headers):
     response = client.get("/users/1", headers=auth_headers)
     assert response.status_code == 200
     assert response.json() == {"id": 1, "email": "test@example.com",
                                "is_admin": True}
 
 
-def test_user_get_by_id_that_doesnt_exist(users_db, auth_headers):
+def test_user_get_by_id_that_doesnt_exist(test_db, auth_headers):
     response = client.get("/users/11111111111111111", headers=auth_headers)
     assert response.status_code == 404
     assert response.json() == {"detail": "User not found"}
 
 
-def test_user_creation(users_db, auth_headers):
+def test_user_creation(test_db, auth_headers):
     response = client.post(
         "/users/",
         headers=auth_headers,
@@ -175,7 +175,7 @@ def test_user_creation(users_db, auth_headers):
     assert len(response.json()) == 2
 
 
-def test_user_creation_duplicate_user(users_db, auth_headers):
+def test_user_creation_duplicate_user(test_db, auth_headers):
     response = client.post(
         "/users/",
         headers=auth_headers,
@@ -189,7 +189,7 @@ def test_user_creation_duplicate_user(users_db, auth_headers):
     assert response.json() == {"detail": "Email already exists"}
 
 
-def test_user_update(users_db, auth_headers):
+def test_user_update(test_db, auth_headers):
     new_email = "test_new@example.com"
     new_password = "test_new@example.com"
     response = client.put(
@@ -224,7 +224,7 @@ def test_user_update(users_db, auth_headers):
     assert response.json() == expected_user
 
 
-def test_user_update_unknown_user(users_db, auth_headers):
+def test_user_update_unknown_user(test_db, auth_headers):
     response = client.put(
         "/users/111111111111",
         headers=auth_headers,
@@ -239,7 +239,7 @@ def test_user_update_unknown_user(users_db, auth_headers):
     assert response.json() == {"detail": "User doesn't exist"}
 
 
-def test_user_deletion(users_db, auth_headers):
+def test_user_deletion(test_db, auth_headers):
     response = client.post(
         "/users/",
         headers=auth_headers,
@@ -262,7 +262,7 @@ def test_user_deletion(users_db, auth_headers):
     assert len(response.json()) == 1
 
 
-def test_user_delete_unknown_user(users_db, auth_headers):
+def test_user_delete_unknown_user(test_db, auth_headers):
     response = client.delete("/users/11111", headers=auth_headers)
 
     assert response.status_code == 404
