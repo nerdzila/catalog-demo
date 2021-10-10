@@ -49,16 +49,17 @@ def get_current_user(
 # General Purpose Endpoints
 # ==================================================================
 @app.get("/")
-def read_root():
+def hello_world():
     """Root endpoint, for now just says hello to the world"""
     return {"Hello": "World"}
 
 
 @app.post("/token", response_model=schemas.Token)
-def login_for_access_token(
+def login_and_get_access_token(
     db: Session = Depends(get_db),
     form_data: OAuth2PasswordRequestForm = Depends()
 ):
+    """Get auth token from FormData credentials"""
     user = crud.authenticate_user(db, form_data.username,
                                   form_data.password)
     if not user:
@@ -80,7 +81,7 @@ def login_for_access_token(
 # User-related endpoints
 # ==================================================================
 @app.get("/users/", response_model=List[schemas.UserOut])
-def read_users(
+def get_user_list(
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_user)
 ):
@@ -89,7 +90,7 @@ def read_users(
 
 
 @app.get("/users/{user_id}", response_model=schemas.UserOut)
-def read_user(
+def get_user_detail(
     user_id: int,
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_user)
@@ -109,7 +110,7 @@ def create_user(
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_user)
 ):
-    """Create a new user"""
+    """Create a new user from JSON payload"""
     existing_user = crud.get_user_by_email(db, user_in.email)
 
     if existing_user:
@@ -126,6 +127,7 @@ def update_user(
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_user)
 ):
+    """Update an existing user from a JSON payload"""
     user_db = crud.get_user(db, user_id)
     if not user_db:
         raise HTTPException(status_code=404, detail="User doesn't exist")
@@ -140,6 +142,7 @@ def delete_user(
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_user)
 ):
+    """Delete user with the given ID"""
     user_db = crud.get_user(db, user_id)
     if not user_db:
         raise HTTPException(status_code=404, detail="User doesn't exist")
