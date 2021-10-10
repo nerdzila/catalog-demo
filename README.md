@@ -27,3 +27,10 @@ docker-compose up
 API will be available at http://localhost:8080/. But the best way to get acquainted with is is to 
 take a look at the interactive documentation:  http://localhost:8080/docs.
 
+### Running the tests
+
+```bash
+./run_tests.sh
+```
+
+Will run the tests and print a coverage report
