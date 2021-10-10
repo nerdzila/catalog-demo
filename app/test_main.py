@@ -1,3 +1,5 @@
+from copy import copy
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -287,7 +289,22 @@ def test_user_delete_unknown_user(test_db, auth_headers):
 # ==================================================================
 # Product-related Tests
 # ==================================================================
-def test_get_all_products(test_db, auth_headers):
+def test_product_get_all(test_db, auth_headers):
     response = client.get("/products/", headers=auth_headers)
     assert response.status_code == 200
     assert len(response.json()) == 2
+
+
+def test_product_get_one(test_db, auth_headers):
+    response = client.get("/products/1", headers=auth_headers)
+    expected_product = copy(config.INITIAL_PRODUCTS[0])
+    expected_product['price'] = float(expected_product['price'])
+    assert response.status_code == 200
+    assert response.json() == expected_product
+
+
+def test_product_get_unknown_product(test_db, auth_headers):
+    response = client.get("/products/1111111", headers=auth_headers)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Product not found"}

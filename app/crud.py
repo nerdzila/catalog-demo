@@ -73,3 +73,12 @@ def authenticate_user(db: Session, email: str, password: str):
 # ==================================================================
 def get_all_products(db: Session) -> List[models.Product]:
     return db.query(models.Product).all()
+
+
+def get_single_product(
+    db: Session,
+    product_id: int
+) -> Optional[models.Product]:
+    return db.query(models.Product).filter(
+        models.Product.id == product_id
+    ).first()

@@ -161,3 +161,15 @@ def get_product_list(
 ):
     """Retrieve all products"""
     return crud.get_all_products(db)
+
+
+@app.get("/products/{product_id}", response_model=schemas.ProductOutDetails)
+def get_product_detail(
+    product_id: int,
+    db: Session = Depends(get_db),
+):
+    """Retrieve a single product by ID"""
+    db_product = crud.get_single_product(db, product_id)
+    if db_product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return db_product
