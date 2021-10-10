@@ -51,6 +51,11 @@ def update_user(
     return user_db
 
 
+def delete_user(db: Session, user_db: models.User):
+    db.delete(user_db)
+    db.commit()
+
+
 def authenticate_user(db: Session, email: str, password: str):
     user = get_user_by_email(db, email)
     if not user:

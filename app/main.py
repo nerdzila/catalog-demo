@@ -129,3 +129,18 @@ def update_user(
 
     user = crud.update_user(db, user_db, user_in)
     return user
+
+
+@app.delete("/users/{user_id}", response_model=schemas.UserDeleted)
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user)
+):
+    user_db = crud.get_user(db, user_id)
+    if not user_db:
+        raise HTTPException(status_code=404, detail="User doesn't exist")
+
+    crud.delete_user(db, user_db)
+
+    return {"id": user_id}
