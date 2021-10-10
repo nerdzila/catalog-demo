@@ -136,8 +136,12 @@ def test_token_with_wrong_credentials(test_db):
 
 def test_authentication_with_bad_token(test_db):
     headers = {"Authorization": "Bearer complete_n0n_s3ns3"}
-    response = client.get("/users/", headers=headers)
 
+    response = client.get("/users/", headers=headers)
+    assert response.status_code == 401
+
+    # Check also for products which have optional auth
+    response = client.get("/products/", headers=headers)
     assert response.status_code == 401
 
 
@@ -147,6 +151,11 @@ def test_authentication_error_with_deleted_user(test_db, auth_headers):
     assert response.status_code == 200
 
     response = client.get("/users/", headers=auth_headers)
+    assert response.status_code == 401
+    assert {'detail': "Could not validate credentials"}
+
+    # Check also for products which have optional auth
+    response = client.get("/products/", headers=auth_headers)
     assert response.status_code == 401
     assert {'detail': "Could not validate credentials"}
 
@@ -294,11 +303,21 @@ def test_product_get_all(test_db, auth_headers):
     assert response.status_code == 200
     assert len(response.json()) == 2
 
+    # Check again but now with an anonymous user
+    response = client.get("/products/")
+    assert response.status_code == 200
+    assert len(response.json()) == 2
+
 
 def test_product_get_one(test_db, auth_headers):
     response = client.get("/products/1", headers=auth_headers)
     expected_product = copy(config.INITIAL_PRODUCTS[0])
     expected_product['price'] = float(expected_product['price'])
+    assert response.status_code == 200
+    assert response.json() == expected_product
+
+    # Check again but now with an anonymous user
+    response = client.get("/products/1")
     assert response.status_code == 200
     assert response.json() == expected_product
 

@@ -45,6 +45,31 @@ def get_current_user(
     return user
 
 
+def get_optional_user(
+    db: Session = Depends(get_db),
+    token: str = Depends(security.optional_oauth2_scheme)
+):
+    # If no auth token is provided we just return an empty user
+    if token is None:
+        return None
+
+    # ... but if a token is provided we autenticate the user
+    # and return error if the credentials arent' correct
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        email = security.get_email_from_token(token)
+    except JWTError:
+        raise credentials_exception
+    user = crud.get_user_by_email(db, email)
+    if user is None:
+        raise credentials_exception
+    return user
+
+
 # ==================================================================
 # General Purpose Endpoints
 # ==================================================================
@@ -158,6 +183,7 @@ def delete_user(
 @app.get("/products/", response_model=List[schemas.ProductOut])
 def get_product_list(
     db: Session = Depends(get_db),
+    user_maybe: models.User = Depends(get_optional_user)
 ):
     """Retrieve all products"""
     return crud.get_all_products(db)
@@ -167,6 +193,7 @@ def get_product_list(
 def get_product_detail(
     product_id: int,
     db: Session = Depends(get_db),
+    user_maybe: models.User = Depends(get_optional_user)
 ):
     """Retrieve a single product by ID"""
     db_product = crud.get_single_product(db, product_id)
