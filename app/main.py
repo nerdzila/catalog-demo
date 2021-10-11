@@ -199,4 +199,26 @@ def get_product_detail(
     db_product = crud.get_single_product(db, product_id)
     if db_product is None:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    # This means, the user is anonymous
+    if user_maybe is None:
+        crud.increment_product_hits(db, db_product)
+
     return db_product
+
+
+@app.get("/products/{product_id}/hits", response_model=schemas.ProductHits)
+def get_product_hits(
+    product_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user)
+):
+    """Get the  of anonymous hits for this product"""
+    db_product = crud.get_single_product(db, product_id)
+    if db_product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    count = crud.get_product_hits(db, db_product)
+
+    count = 0 if count is None else count
+    return {"hits": count}

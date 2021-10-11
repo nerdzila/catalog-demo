@@ -71,3 +71,8 @@ class ProductOutDetails(ProductOut):
 class ProductDeleted(BaseModel):
     """DELETE endpoint gets only the ID"""
     id: int
+
+
+class ProductHits(BaseModel):
+    """Ad hoc schema to show product hit count"""
+    hits: int

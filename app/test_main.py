@@ -327,3 +327,29 @@ def test_product_get_unknown_product(test_db, auth_headers):
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Product not found"}
+
+
+def test_product_hits(test_db, auth_headers):
+    # Check that in the beggining the product has 0 hits
+    response = client.get("/products/1/hits", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert response.json() == {"hits": 0}
+
+    # After two anonymous and one authenticated request ...
+    response = client.get("/products/1")
+    response = client.get("/products/1")
+    response = client.get("/products/1", headers=auth_headers)
+
+    # ... we should now have 2 hits
+    response = client.get("/products/1/hits", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert response.json() == {"hits": 2}
+
+
+def test_product_get_hits_for_unknown_product(test_db, auth_headers):
+    response = client.get("/products/1111111/hits", headers=auth_headers)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Product not found"}
