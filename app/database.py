@@ -34,6 +34,19 @@ def initialize_db():
             pwd=hashed_password,
             is_admin=True
         )
+        hashed_password = security.get_password_hash(
+            config.SECOND_USER_PASSWORD
+        )
+        conn.execute(
+            """
+                INSERT INTO
+                    users(email, hashed_password, is_admin)
+                    VALUES(:email, :pwd, :is_admin)
+            """,
+            email=config.SECOND_USER_EMAIL,
+            pwd=hashed_password,
+            is_admin=True
+        )
 
         for product in config.INITIAL_PRODUCTS:
             conn.execute(

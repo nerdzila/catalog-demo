@@ -14,6 +14,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 FIRST_USER_EMAIL = "escribele.a.alfonso@gmail.com"
 FIRST_USER_PASSWORD = "not_a_real_password"
 
+SECOND_USER_EMAIL = "escribele.a.alfonso+clone@gmail.com"
+SECOND_USER_PASSWORD = "another_fake_password"
+
 INITIAL_PRODUCTS = [
   dict(id=1, sku="B079XC5PVV", name="SSD Disk 1TB", brand="Kingston",
        price="2012.50", description="Fast storage solution"),
