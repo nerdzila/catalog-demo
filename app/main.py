@@ -1,12 +1,13 @@
 from typing import List
 from datetime import timedelta
 
+import boto3
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError
 
-from . import models, crud, schemas, security, config
+from . import models, crud, schemas, security, config, notification
 from .database import SessionLocal, initialize_db
 
 
@@ -24,6 +25,10 @@ def get_db():  # pragma: no cover
         yield db
     finally:
         db.close()
+
+
+def get_ses_client():  # pragma: no cover
+    return boto3.client('ses')
 
 
 def get_current_user(
@@ -228,7 +233,8 @@ def get_product_hits(
 def create_new_product(
     product_in: schemas.ProductIn,
     db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user),
+    ses_client=Depends(get_ses_client)
 ):
     """Create a new product from a JSON payload"""
     existing_product = crud.get_product_by_sku(db, product_in.sku)
@@ -237,6 +243,14 @@ def create_new_product(
         raise HTTPException(status_code=400, detail="SKU already exists")
 
     product = crud.create_product(db, product_in)
+
+    other_admins = crud.get_users_other_than(db, current_user)
+    if other_admins:
+        for admin in other_admins:
+            notification.notify_via_email(ses_client, admin.email,
+                                          current_user.email,
+                                          f"Created product #{product.id}")
+
     return product
 
 
@@ -245,7 +259,8 @@ def update_product(
     product_id: int,
     product_in: schemas.ProductIn,
     db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user),
+    ses_client=Depends(get_ses_client)
 ):
     """Update an existing product from a JSON payload"""
     product_at_db = crud.get_single_product(db, product_id)
@@ -253,6 +268,12 @@ def update_product(
         raise HTTPException(status_code=404, detail="Product doesn't exist")
 
     product = crud.update_product(db, product_at_db, product_in)
+    other_admins = crud.get_users_other_than(db, current_user)
+    if other_admins:
+        for admin in other_admins:
+            notification.notify_via_email(ses_client, admin.email,
+                                          current_user.email,
+                                          f"Updated product #{product_id}")
     return product
 
 
@@ -260,7 +281,8 @@ def update_product(
 def delete_product(
     product_id: int,
     db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user),
+    ses_client=Depends(get_ses_client)
 ):
     """Delete product with the given ID"""
     product_at_db = crud.get_single_product(db, product_id)
@@ -269,4 +291,10 @@ def delete_product(
 
     crud.delete_product(db, product_at_db)
 
+    other_admins = crud.get_users_other_than(db, current_user)
+    if other_admins:
+        for admin in other_admins:
+            notification.notify_via_email(ses_client, admin.email,
+                                          current_user.email,
+                                          f"Deleted product #{product_id}")
     return {"id": product_id}

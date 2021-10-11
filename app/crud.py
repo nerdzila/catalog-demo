@@ -68,6 +68,13 @@ def authenticate_user(db: Session, email: str, password: str):
     return user
 
 
+def get_users_other_than(db: Session, user_db: models.User):
+    return db.query(models.User).filter(
+        models.User.id != user_db.id,
+        models.User.is_admin
+    ).all()
+
+
 # ==================================================================
 # Product CRUD utilities
 # ==================================================================
