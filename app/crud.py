@@ -94,3 +94,39 @@ def get_product_hits(db: Session, db_product: models.Product):
     return db.query(models.ProductHit).filter(
         models.ProductHit.product_id == db_product.id
     ).count()
+
+
+def get_product_by_sku(db: Session, sku: str) -> Optional[models.Product]:
+    return db.query(models.User).filter(models.Product.sku == sku).first()
+
+
+def create_product(
+    db: Session,
+    product_in: schemas.ProductIn
+) -> models.Product:
+    new_product = models.Product(**product_in.dict())
+    db.add(new_product)
+    db.commit()
+    db.refresh(new_product)
+    return new_product
+
+
+def update_product(
+    db: Session,
+    product_db: models.Product,
+    product_in: schemas.ProductIn
+) -> models.Product:
+    fields_to_update = product_in.dict(exclude_unset=True)
+
+    for field, value in fields_to_update.items():
+        setattr(product_db, field, value)
+
+    db.add(product_db)
+    db.commit()
+    db.refresh(product_db)
+    return product_db
+
+
+def delete_product(db: Session, product_db: models.Product):
+    db.delete(product_db)
+    db.commit()

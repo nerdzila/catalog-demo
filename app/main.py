@@ -222,3 +222,51 @@ def get_product_hits(
 
     count = 0 if count is None else count
     return {"hits": count}
+
+
+@app.post("/products/", response_model=schemas.ProductOutDetails)
+def create_new_product(
+    product_in: schemas.ProductIn,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user)
+):
+    """Create a new product from a JSON payload"""
+    existing_product = crud.get_product_by_sku(db, product_in.sku)
+
+    if existing_product:
+        raise HTTPException(status_code=400, detail="SKU already exists")
+
+    product = crud.create_product(db, product_in)
+    return product
+
+
+@app.put("/products/{product_id}", response_model=schemas.ProductOutDetails)
+def update_product(
+    product_id: int,
+    product_in: schemas.ProductIn,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user)
+):
+    """Update an existing product from a JSON payload"""
+    product_at_db = crud.get_single_product(db, product_id)
+    if not product_at_db:
+        raise HTTPException(status_code=404, detail="Product doesn't exist")
+
+    product = crud.update_product(db, product_at_db, product_in)
+    return product
+
+
+@app.delete("/products/{product_id}", response_model=schemas.ProductDeleted)
+def delete_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user)
+):
+    """Delete product with the given ID"""
+    product_at_db = crud.get_single_product(db, product_id)
+    if not product_at_db:
+        raise HTTPException(status_code=404, detail="Product doesn't exist")
+
+    crud.delete_product(db, product_at_db)
+
+    return {"id": product_id}

@@ -353,3 +353,80 @@ def test_product_get_hits_for_unknown_product(test_db, auth_headers):
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Product not found"}
+
+
+def test_product_creation(test_db, auth_headers):
+    payload = dict(
+        sku="B07G2CJLNN",
+        name="The Big Lebowski 20th Anniversary Edition",
+        price=530.64,
+        brand="Universal Pictures",
+        description="The classical film, remastered"
+    )
+
+    response = client.post("/products/", headers=auth_headers, json=payload)
+    assert response.status_code == 200
+    assert response.json() == {"id": 3} | payload
+
+    response = client.get("/products/", headers=auth_headers)
+    assert len(response.json()) == 3
+
+
+def test_product_creation_duplicate_sku(test_db, auth_headers):
+    payload = dict(
+        sku="B079XC5PVV",
+        name="SSD Disk 500GB",
+        price=1630.02,
+        brand="Kingston",
+        description="Fast storage solution"
+    )
+
+    response = client.post("/products/", headers=auth_headers, json=payload)
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "SKU already exists"}
+
+
+def test_product_update(test_db, auth_headers):
+    payload = dict(
+        sku="B079XC5PVV",
+        name="SSD Disk 500GB",
+        price=1630.02,
+        brand="Kingston",
+        description="Fast storage solution"
+    )
+
+    response = client.put("/products/1", headers=auth_headers, json=payload)
+    assert response.status_code == 200
+    assert response.json() == {"id": 1} | payload
+
+
+def test_user_update_unknown_product(test_db, auth_headers):
+    payload = dict(
+        sku="B079XC5PVV",
+        name="SSD Disk 500GB",
+        price=1630.02,
+        brand="Kingston",
+        description="Fast storage solution"
+    )
+    response = client.put("/products/11111", headers=auth_headers,
+                          json=payload)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Product doesn't exist"}
+
+
+def test_product_deletion(test_db, auth_headers):
+    response = client.delete("/products/1", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json() == {"id": 1}
+
+    response = client.get("/products/", headers=auth_headers)
+    assert len(response.json()) == 1
+
+
+def test_user_delete_unknown_product(test_db, auth_headers):
+    response = client.delete("/products/11111", headers=auth_headers)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Product doesn't exist"}
