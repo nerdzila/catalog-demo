@@ -1,4 +1,8 @@
-from sqlalchemy import Boolean, Column, Integer, String, Numeric
+from sqlalchemy import (
+    Boolean, Column, Integer, String, Numeric,
+    DateTime, ForeignKey
+)
+from sqlalchemy.sql import func
 
 from .database import Base
 
@@ -21,3 +25,11 @@ class Product(Base):
     price = Column(Numeric)
     brand = Column(String)
     description = Column(String)
+
+
+class ProductHit(Base):
+    __tablename__ = "product_hits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    seen_at = Column(DateTime, default=func.now())
+    product_id = Column(Integer, ForeignKey('products.id'))

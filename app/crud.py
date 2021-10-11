@@ -82,3 +82,15 @@ def get_single_product(
     return db.query(models.Product).filter(
         models.Product.id == product_id
     ).first()
+
+
+def increment_product_hits(db: Session, db_product: models.Product):
+    new_hit = models.ProductHit(product_id=db_product.id)
+    db.add(new_hit)
+    db.commit()
+
+
+def get_product_hits(db: Session, db_product: models.Product):
+    return db.query(models.ProductHit).filter(
+        models.ProductHit.product_id == db_product.id
+    ).count()
