@@ -1,3 +1,4 @@
+import logging
 from typing import List
 from datetime import timedelta
 
@@ -28,7 +29,13 @@ def get_db():  # pragma: no cover
 
 
 def get_ses_client():  # pragma: no cover
-    return boto3.client('ses')
+    ses_client = None
+    try:
+        ses_client = boto3.client('ses')
+    except Exception as e:
+        logging.exception(e)
+
+    return ses_client
 
 
 def get_current_user(
@@ -245,7 +252,7 @@ def create_new_product(
     product = crud.create_product(db, product_in)
 
     other_admins = crud.get_users_other_than(db, current_user)
-    if other_admins:
+    if ses_client and other_admins:
         for admin in other_admins:
             notification.notify_via_email(ses_client, admin.email,
                                           current_user.email,
@@ -269,7 +276,7 @@ def update_product(
 
     product = crud.update_product(db, product_at_db, product_in)
     other_admins = crud.get_users_other_than(db, current_user)
-    if other_admins:
+    if ses_client and other_admins:
         for admin in other_admins:
             notification.notify_via_email(ses_client, admin.email,
                                           current_user.email,
@@ -292,7 +299,7 @@ def delete_product(
     crud.delete_product(db, product_at_db)
 
     other_admins = crud.get_users_other_than(db, current_user)
-    if other_admins:
+    if ses_client and other_admins:
         for admin in other_admins:
             notification.notify_via_email(ses_client, admin.email,
                                           current_user.email,
