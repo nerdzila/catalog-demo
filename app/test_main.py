@@ -1,12 +1,16 @@
+import json
 from copy import copy
 
 import pytest
+import boto3
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from moto import mock_ses
+from moto.ses import ses_backend
 
-from . import security, config
-from .main import app, get_db
+from . import security, config, notification
+from .main import app, get_db, get_ses_client
 from .database import Base
 
 
@@ -15,6 +19,7 @@ from .database import Base
 # ==================================================================
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 TEST_USER_EMAIL = "test@example.com"
+TEST_USER_EMAIL_SECOND = "test2@example.com"
 TEST_USER_PASSWORD = "pwd"
 
 engine = create_engine(
@@ -25,6 +30,33 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False,
                                    bind=engine)
 
 
+# ==================================================================
+# Mock SES client
+# ==================================================================
+mock = mock_ses()
+mock.start()
+ses = boto3.client("ses")
+ses.create_template(Template=notification.NOTIFICATION_TEMPLATE)
+ses.verify_email_identity(
+  EmailAddress=notification.NOTIFICATION_SOURCE
+)
+
+
+def assert_email_sent(addressee, data):  # pragma: no cover
+    for message in ses_backend.sent_messages:
+        if message.template_data != [json.dumps(data)]:
+            continue
+        if addressee not in message.destinations["ToAddresses"]:
+            continue
+
+        # Found the message
+        return
+    raise AssertionError("Email was not sent")
+
+
+# ==================================================================
+# Dependency overrides
+# ==================================================================
 def override_get_db():
     try:
         db = TestingSessionLocal()
@@ -33,7 +65,12 @@ def override_get_db():
         db.close()
 
 
+def override_get_ses():
+    return ses
+
+
 app.dependency_overrides[get_db] = override_get_db
+app.dependency_overrides[get_ses_client] = override_get_ses
 
 client = TestClient(app)
 
@@ -60,6 +97,20 @@ def test_db():
                     VALUES(:email, :pwd, :is_admin)
             """,
             email=TEST_USER_EMAIL,
+            pwd=hashed_password,
+            is_admin=True
+        )
+
+        hashed_password = security.get_password_hash(
+            TEST_USER_PASSWORD
+        )
+        conn.execute(
+            """
+                INSERT INTO
+                    users(email, hashed_password, is_admin)
+                    VALUES(:email, :pwd, :is_admin)
+            """,
+            email=TEST_USER_EMAIL_SECOND,
             pwd=hashed_password,
             is_admin=True
         )
@@ -166,8 +217,10 @@ def test_authentication_error_with_deleted_user(test_db, auth_headers):
 def test_get_all_users(test_db, auth_headers):
     response = client.get("/users/", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json() == [{"id": 1, "email": "test@example.com",
-                               "is_admin": True}]
+    assert response.json() == [
+        {"id": 1, "email": TEST_USER_EMAIL, "is_admin": True},
+        {"id": 2, "email": TEST_USER_EMAIL_SECOND, "is_admin": True}
+    ]
 
 
 def test_user_get_by_id(test_db, auth_headers):
@@ -188,17 +241,17 @@ def test_user_creation(test_db, auth_headers):
         "/users/",
         headers=auth_headers,
         json=dict(
-            email="test_2@example.com",
+            email="test_3@example.com",
             is_admin=True,
             password="not a real password"
         )
     )
     assert response.status_code == 200
-    assert response.json() == {"id": 2, "email": "test_2@example.com",
+    assert response.json() == {"id": 3, "email": "test_3@example.com",
                                "is_admin": True}
 
     response = client.get("/users/", headers=auth_headers)
-    assert len(response.json()) == 2
+    assert len(response.json()) == 3
 
 
 def test_user_creation_duplicate_user(test_db, auth_headers):
@@ -278,14 +331,14 @@ def test_user_deletion(test_db, auth_headers):
     assert response.status_code == 200
 
     response = client.get("/users/", headers=auth_headers)
-    assert len(response.json()) == 2
+    assert len(response.json()) == 3
 
     response = client.delete("/users/2", headers=auth_headers)
     assert response.status_code == 200
     assert response.json() == {"id": 2}
 
     response = client.get("/users/", headers=auth_headers)
-    assert len(response.json()) == 1
+    assert len(response.json()) == 2
 
 
 def test_user_delete_unknown_user(test_db, auth_headers):
@@ -371,6 +424,11 @@ def test_product_creation(test_db, auth_headers):
     response = client.get("/products/", headers=auth_headers)
     assert len(response.json()) == 3
 
+    assert_email_sent(TEST_USER_EMAIL_SECOND, {
+        "user": TEST_USER_EMAIL,
+        "change": "Created product #3"
+    })
+
 
 def test_product_creation_duplicate_sku(test_db, auth_headers):
     payload = dict(
@@ -400,6 +458,11 @@ def test_product_update(test_db, auth_headers):
     assert response.status_code == 200
     assert response.json() == {"id": 1} | payload
 
+    assert_email_sent(TEST_USER_EMAIL_SECOND, {
+        "user": TEST_USER_EMAIL,
+        "change": "Updated product #1"
+    })
+
 
 def test_user_update_unknown_product(test_db, auth_headers):
     payload = dict(
@@ -423,6 +486,10 @@ def test_product_deletion(test_db, auth_headers):
 
     response = client.get("/products/", headers=auth_headers)
     assert len(response.json()) == 1
+    assert_email_sent(TEST_USER_EMAIL_SECOND, {
+        "user": TEST_USER_EMAIL,
+        "change": "Deleted product #1"
+    })
 
 
 def test_user_delete_unknown_product(test_db, auth_headers):
